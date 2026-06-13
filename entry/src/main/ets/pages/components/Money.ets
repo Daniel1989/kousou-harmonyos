@@ -1,7 +1,6 @@
 import { BusinessError } from '@kit.BasicServicesKit';
-import { promptAction } from '@kit.ArkUI';
-import { BitstripeApiService, ServerTag, ServerTagPayload } from '../../common/server/BitstripeApiService';
-
+import { router } from '@kit.ArkUI';
+import CommonConstants from '../../common/constants/CommonConstants';
 export interface Tag {
   id: number,
   name: string,
@@ -99,11 +98,24 @@ export struct Money {
   @Link selectedTag: Tag | null;
   @Link userId: string;
   @Link appToken: string;
+  @Watch('handleMenuChange') @Link currentMenu: string;
 
   @State tagList: Tag[] = INIT_TAG;
-  @State showAddTagPanel: boolean = false;
-  @State newTagName: string = '';
-  @State selectedIcon: string = 'riyong';
+
+  aboutToAppear() {
+    this.refreshTagList();
+  }
+
+  handleMenuChange() {
+    if (this.currentMenu === 'money') {
+      this.refreshTagList();
+    }
+  }
+
+  refreshTagList() {
+    this.tagList = INIT_TAG.slice();
+  }
+
   getSelectedColor = (currentType: string) => {
     if(currentType !== this.moneyType) {
       return '#e8ecef'
@@ -118,16 +130,6 @@ export struct Money {
     })
   }
 
-  getIconOptions = () => {
-    const names: string[] = [];
-    INIT_TAG.filter((item: Tag) => item.category === this.moneyType).forEach((item: Tag) => {
-      if (!names.includes(item.icon)) {
-        names.push(item.icon);
-      }
-    });
-    return names.slice(0, 18);
-  }
-
   getCurrentTypeTagIndex = () => {
     return this.tagList.filter((item)=> {
       return item.category == this.moneyType
@@ -140,76 +142,17 @@ export struct Money {
     return 'icons/tags/'+name+'.svg';
 }
 
-  showToast(message: string, backgroundColor: string) {
-    try {
-      promptAction.showToast({
-        message,
-        shadow: ShadowStyle.OUTER_DEFAULT_SM,
-        alignment: Alignment.Top,
-        backgroundColor
-      });
-    } catch (error) {
-      const err = error as BusinessError;
-      console.warn(`[Money] toast skipped, code=${err.code}, message=${err.message}`);
-    }
-  }
-
   selectMoneyType(type: string) {
     this.moneyType = type;
-    this.selectedIcon = type === 'income' ? 'gongji' : 'riyong';
   }
 
-  addCustomTag() {
-    const tagName = this.newTagName.trim();
-    if (!tagName) {
-      this.showToast('请输入分类名称', '#ffcac8');
-      return;
-    }
-    const exists = INIT_TAG.some((item: Tag) => item.name === tagName && item.category === this.moneyType);
-    if (exists) {
-      this.showToast('分类已存在', '#ffcac8');
-      return;
-    }
-    if (this.appToken && this.userId !== 'local') {
-      const payload: ServerTagPayload = {
-        name: tagName,
-        icon: this.selectedIcon,
-        type: this.moneyType
-      };
-      BitstripeApiService.createTag(this.appToken, payload).then((tag: ServerTag) => {
-        const newTag: Tag = {
-          id: tag.id,
-          name: tag.name,
-          icon: tag.icon || this.selectedIcon,
-          category: tag.type,
-          isDefault: tag.isDefault,
-          isUserTag: !tag.isDefault
-        };
-        INIT_TAG.push(newTag);
-        this.tagList = INIT_TAG.slice();
-        this.selectedTag = newTag;
-        this.newTagName = '';
-        this.showAddTagPanel = false;
-        this.showToast('分类已保存到服务端', '#a6f499');
-      }).catch((error: BusinessError) => {
-        this.showToast(`分类保存失败 ${error.message ?? ''}`, '#ffcac8');
-      });
-      return;
-    }
-    const newTag: Tag = {
-      id: 1000 + INIT_TAG.length,
-      name: tagName,
-      icon: this.selectedIcon,
-      category: this.moneyType,
-      isDefault: false,
-      isUserTag: true
-    };
-    INIT_TAG.push(newTag);
-    this.tagList = INIT_TAG.slice();
-    this.selectedTag = newTag;
-    this.newTagName = '';
-    this.showAddTagPanel = false;
-    this.showToast('分类已添加到本机，登录后可保存到服务端', '#a6f499');
+  goCategoryManage() {
+    router.pushUrl({
+      url: CommonConstants.CATEGORY_MANAGE_PAGE_URL,
+      params: CommonConstants.categoryManageParams(this.moneyType)
+    }).catch((error: BusinessError) => {
+      console.error(`[Money] open category manage failed, code=${error.code}, message=${error.message}`);
+    });
   }
 
   getSelectedTagColor = (target: Tag) => {
@@ -271,7 +214,7 @@ export struct Money {
             Text('+')
               .fontSize(28)
               .fontColor('#2f7468')
-            Text('新增')
+            Text('新增分类')
               .fontSize(14)
           }
           .justifyContent(FlexAlign.Center)
@@ -281,7 +224,7 @@ export struct Money {
           .border({radius: 8, width: 2, color: '#dce7e2', style: BorderStyle.Solid})
           .backgroundColor('#fff')
           .onClick(() => {
-            this.showAddTagPanel = !this.showAddTagPanel;
+            this.goCategoryManage();
           })
           ForEach(this.getCurrentTypeTagIndex(), (item: string) => {
               Column(){
@@ -306,62 +249,12 @@ export struct Money {
         .padding({top: 4, bottom: 12, left: 16, right: 16})
         .backgroundColor('#f9faf5')
       }
+      .scrollBar(BarState.Off)
+      .scrollBarColor(Color.Transparent)
+      .scrollBarWidth(0)
       .layoutWeight(1)
       .width('100%')
       .clip(true)
-
-      if (this.showAddTagPanel) {
-        Column() {
-          TextInput({ placeholder: '分类名称', text: this.newTagName })
-            .height(38)
-            .fontSize(14)
-            .backgroundColor('#fff')
-            .border({ radius: 8 })
-            .onChange((value: string) => {
-              this.newTagName = value;
-            })
-          Flex({ justifyContent: FlexAlign.Start, direction: FlexDirection.Row, wrap: FlexWrap.Wrap }) {
-            ForEach(this.getIconOptions(), (icon: string) => {
-              Image($rawfile(this.getIconStr(icon)))
-                .width(34)
-                .height(34)
-                .padding(5)
-                .margin({ right: 7, top: 7 })
-                .backgroundColor(this.selectedIcon === icon ? '#a1e0cf' : '#edf0ec')
-                .border({ radius: 8 })
-                .onClick(() => {
-                  this.selectedIcon = icon;
-                })
-            }, (icon: string) => icon)
-          }
-          .width('100%')
-          Row() {
-            Button('取消')
-              .height(36)
-              .layoutWeight(1)
-              .backgroundColor('#edf0ec')
-              .fontColor('#1f2f2b')
-              .onClick(() => {
-                this.showAddTagPanel = false;
-              })
-            Button('保存分类')
-              .height(36)
-              .layoutWeight(1)
-              .margin({ left: 8 })
-              .backgroundColor('#f1c21a')
-              .fontColor('#222')
-              .onClick(() => {
-                this.addCustomTag();
-              })
-          }
-          .width('100%')
-          .margin({ top: 8 })
-        }
-        .alignItems(HorizontalAlign.Start)
-        .width('100%')
-        .padding({ left: 18, right: 18, top: 8, bottom: 8 })
-        .backgroundColor('#f2f5f0')
-      }
     }
     .width('100%')
     .height('100%')

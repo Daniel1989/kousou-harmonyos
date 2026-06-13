@@ -1,6 +1,7 @@
 import RdbUtils, { MyTag } from "../../common/rdbUtils/RdbUtils";
+import { router } from '@kit.ArkUI';
+import CommonConstants from '../../common/constants/CommonConstants';
 import { BitstripeApiService, ServerStatisticsResult, ServerStatisticsTag } from "../../common/server/BitstripeApiService";
-
 interface LocalTagStat {
   tag: string;
   type: string;
@@ -65,7 +66,7 @@ export struct Statistics {
 
   analyzeWithAi() {
     if (!this.appToken || this.userId === 'local') {
-      this.aiTips = ['登录华为账号后可使用 AI 统计建议'];
+      this.goLogin();
       return;
     }
     this.aiLoading = true;
@@ -215,6 +216,10 @@ export struct Statistics {
     this.loadData();
   }
 
+  goLogin() {
+    router.pushUrl({ url: CommonConstants.LOGIN_PAGE_URL });
+  }
+
   build() {
     Scroll() {
       Column() {
@@ -222,17 +227,23 @@ export struct Statistics {
           .fontSize(28)
           .fontWeight(FontWeight.Bold)
           .fontColor('#111')
-          .margin({ top: 24, bottom: 18 })
+          .margin({ top: 14, bottom: 14 })
 
         Row() {
-          Button('<')
-            .width(42)
-            .height(36)
-            .backgroundColor('#edf0ec')
-            .fontColor('#1f2f2b')
-            .onClick(() => {
-              this.previousMonth();
-            })
+          Column() {
+            Image($rawfile('icons/left.svg'))
+              .width(20)
+              .height(20)
+              .fillColor('#1f2f2b')
+          }
+          .width(42)
+          .height(36)
+          .justifyContent(FlexAlign.Center)
+          .backgroundColor('#edf0ec')
+          .border({ radius: 6 })
+          .onClick(() => {
+            this.previousMonth();
+          })
           Text(this.month)
             .fontSize(18)
             .fontWeight(FontWeight.Bold)
@@ -243,14 +254,23 @@ export struct Statistics {
               this.showMonthPicker = !this.showMonthPicker;
               this.pickerYear = Number(this.month.slice(0, 4));
             })
-          Button('>')
-            .width(42)
-            .height(36)
-            .backgroundColor('#edf0ec')
-            .fontColor(this.isCurrentOrFutureMonth(this.month) ? '#b8c2bf' : '#1f2f2b')
-            .onClick(() => {
+          Column() {
+            Image($rawfile('icons/right.svg'))
+              .width(20)
+              .height(20)
+              .fillColor(this.isCurrentOrFutureMonth(this.month) ? '#b8c2bf' : '#1f2f2b')
+          }
+          .width(42)
+          .height(36)
+          .justifyContent(FlexAlign.Center)
+          .backgroundColor('#edf0ec')
+          .border({ radius: 6 })
+          .opacity(this.isCurrentOrFutureMonth(this.month) ? 0.5 : 1)
+          .onClick(() => {
+            if (!this.isCurrentOrFutureMonth(this.month)) {
               this.nextMonth();
-            })
+            }
+          })
         }
         .width('100%')
         .margin({ bottom: 12 })
@@ -258,29 +278,42 @@ export struct Statistics {
         if (this.showMonthPicker) {
           Column() {
             Row() {
-              Button('<')
-                .width(42)
-                .height(34)
-                .backgroundColor('#edf0ec')
-                .fontColor('#1f2f2b')
-                .onClick(() => {
-                  this.pickerYear -= 1;
-                })
+              Column() {
+                Image($rawfile('icons/left.svg'))
+                  .width(18)
+                  .height(18)
+                  .fillColor('#1f2f2b')
+              }
+              .width(42)
+              .height(34)
+              .justifyContent(FlexAlign.Center)
+              .backgroundColor('#edf0ec')
+              .border({ radius: 6 })
+              .onClick(() => {
+                this.pickerYear -= 1;
+              })
               Text(`${this.pickerYear} 年`)
                 .fontSize(16)
                 .fontWeight(FontWeight.Bold)
                 .layoutWeight(1)
                 .textAlign(TextAlign.Center)
-              Button('>')
-                .width(42)
-                .height(34)
-                .backgroundColor('#edf0ec')
-                .fontColor('#1f2f2b')
-                .onClick(() => {
-                  if (this.pickerYear < Number(this.currentMonth().slice(0, 4))) {
-                    this.pickerYear += 1;
-                  }
-                })
+              Column() {
+                Image($rawfile('icons/right.svg'))
+                  .width(18)
+                  .height(18)
+                  .fillColor(this.pickerYear < Number(this.currentMonth().slice(0, 4)) ? '#1f2f2b' : '#b8c2bf')
+              }
+              .width(42)
+              .height(34)
+              .justifyContent(FlexAlign.Center)
+              .backgroundColor('#edf0ec')
+              .border({ radius: 6 })
+              .opacity(this.pickerYear < Number(this.currentMonth().slice(0, 4)) ? 1 : 0.5)
+              .onClick(() => {
+                if (this.pickerYear < Number(this.currentMonth().slice(0, 4))) {
+                  this.pickerYear += 1;
+                }
+              })
             }
             .width('100%')
             Flex({ justifyContent: FlexAlign.Start, direction: FlexDirection.Row, wrap: FlexWrap.Wrap }) {
@@ -352,15 +385,35 @@ export struct Statistics {
           .backgroundColor('#dce7e2')
           .border({ radius: 8 })
 
-        Button(this.aiLoading ? '分析中...' : 'AI 统计建议')
-          .height(40)
+        if (!this.appToken || this.userId === 'local') {
+          Row() {
+            Text('登录后可使用 AI 统计建议')
+              .fontSize(14)
+              .fontColor('#66736f')
+              .layoutWeight(1)
+            Text('去登录')
+              .fontSize(14)
+              .fontColor('#2f7468')
+              .onClick(() => {
+                this.goLogin();
+              })
+          }
           .width('100%')
+          .padding({ top: 12, bottom: 12, left: 14, right: 14 })
           .margin({ top: 10 })
-          .backgroundColor('#f1c21a')
-          .fontColor('#222')
-          .onClick(() => {
-            this.analyzeWithAi();
-          })
+          .backgroundColor('#f2f5f0')
+          .border({ radius: 8 })
+        } else {
+          Button(this.aiLoading ? '分析中...' : '生成 AI 统计建议')
+            .height(40)
+            .width('100%')
+            .margin({ top: 10 })
+            .backgroundColor('#dce7e2')
+            .fontColor('#1f2f2b')
+            .onClick(() => {
+              this.analyzeWithAi();
+            })
+        }
 
         ForEach(this.aiTips, (item: string) => {
           Text(item)
@@ -530,6 +583,17 @@ export struct Statistics {
           .width('100%')
           .margin({ top: 24, bottom: 10 })
 
+        if (this.filteredStats().length === 0) {
+          Text(this.activeType === 'income' ? '本月暂无收入分类记录' : '本月暂无支出分类记录')
+            .fontSize(13)
+            .fontColor('#8d9996')
+            .width('100%')
+            .textAlign(TextAlign.Center)
+            .padding({ top: 18, bottom: 18 })
+            .backgroundColor('#f9faf5')
+            .border({ radius: 8 })
+        }
+
         ForEach(this.filteredStats(), (item: LocalTagStat) => {
           Column() {
             Row() {
@@ -565,6 +629,9 @@ export struct Statistics {
       .width('100%')
       .padding({ left: 20, right: 20, bottom: 24 })
     }
+    .scrollBar(BarState.Off)
+    .scrollBarColor(Color.Transparent)
+    .scrollBarWidth(0)
     .width('100%')
     .height('100%')
   }

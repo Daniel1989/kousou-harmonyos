@@ -4,12 +4,10 @@ import { MyKeyboard } from './components/MyKeyboard';
 import { Settings } from './components/Settings';
 import { Statistics } from './components/Statistics';
 import { Wishlist } from './components/Wishlist';
-import { promptAction } from '@kit.ArkUI';
+import { promptAction, router } from '@kit.ArkUI';
 import RdbUtils from '../common/rdbUtils/RdbUtils';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { common } from '@kit.AbilityKit';
-import { hilog } from '@kit.PerformanceAnalysisKit';
-import { HuaweiAccountService, HuaweiAccountSession } from '../common/account/HuaweiAccountService';
 import { OnDeviceAccountingAiService } from '../common/ai/OnDeviceAccountingAiService';
 import { ReceiptOcrService } from '../common/ai/ReceiptOcrService';
 import { BitstripeApiService, ReceiptRecognitionItem, ServerAccountRecord } from '../common/server/BitstripeApiService';
@@ -66,114 +64,61 @@ struct Index {
   @Builder homeBuilder() {
     Column() {
       Row() {
-        Text('Today')
-          .fontSize(28)
+        Text('今天')
+          .fontSize(26)
           .fontWeight(FontWeight.Bold)
           .width('100%')
-          .height(58)
+          .height(44)
           .align(Alignment.Center)
           .textAlign(TextAlign.Center)
           .fontColor('#010101')
       }
-      Row() {
-        Column() {
-          Text(this.accountLabel)
-            .fontSize(14)
-            .fontColor('#333')
-            .fontWeight(FontWeight.Medium)
-          Text(this.userId === 'local' ? '本地数据，登录后可保存到服务端' : '服务端账号数据')
-            .fontSize(12)
-            .fontColor('#8d9996')
-            .margin({ top: 2 })
-        }
-        Button(this.userId === 'local' ? '华为账号登录' : '刷新登录')
-          .fontSize(13)
-          .height(34)
-          .backgroundColor('#a1e0cf')
-          .fontColor('#1f2f2b')
-          .onClick(() => {
-            this.loginWithHuawei();
-          })
-      }
-      .justifyContent(FlexAlign.SpaceBetween)
-      .width('100%')
-      .padding({ left: 20, right: 20, top: 8, bottom: 8 })
 
-      Column() {
-        TextInput({ placeholder: '例如：午餐 35、工资 8000', text: this.smartText })
-          .height(42)
-          .fontSize(14)
-          .backgroundColor('#f2f5f0')
-          .border({ radius: 8 })
-          .onChange((value: string) => {
-            this.smartText = value;
-          })
-        Row() {
-          Button(this.ocrLoading ? '识别中...' : '识别图片')
+      if (this.receiptItems.length > 0) {
+        Column() {
+          ForEach(this.receiptItems, (item: ReceiptRecognitionItem, index: number) => {
+            Row() {
+              Text(`${item.category || '日用品'} · ${item.description || '票据项目'}`)
+                .fontSize(12)
+                .fontColor('#34413d')
+                .layoutWeight(1)
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+              Text(`¥${item.amount}`)
+                .fontSize(12)
+                .fontWeight(FontWeight.Medium)
+                .fontColor('#111')
+            }
+            .width('100%')
+            .padding({ top: 5, bottom: 5 })
+          }, (item: ReceiptRecognitionItem, index: number) => `${index}_${item.description}_${item.amount}`)
+          Button('全部入账')
             .fontSize(13)
             .height(34)
-            .backgroundColor('#f1c21a')
-            .fontColor('#222')
-            .onClick(() => {
-              this.recognizeReceiptImage();
-            })
-          Button('解析文本')
-            .fontSize(13)
-            .height(34)
-            .margin({ left: 8 })
-            .backgroundColor('#dce7e2')
+            .width('100%')
+            .margin({ top: 6 })
+            .backgroundColor('#a1e0cf')
             .fontColor('#1f2f2b')
             .onClick(() => {
-              this.applyOnDeviceAi();
+              this.saveReceiptItems();
             })
-          if (this.selectedTag && this.parsedAmount) {
-            Text(`${this.selectedTag.name} ¥${this.parsedAmount}`)
-              .fontSize(13)
-              .fontColor('#65706d')
-              .margin({ left: 10 })
-          }
         }
-        .margin({ top: 8 })
-        if (this.receiptItems.length > 0) {
-          Column() {
-            ForEach(this.receiptItems, (item: ReceiptRecognitionItem, index: number) => {
-              Row() {
-                Text(`${item.category || '日用品'} · ${item.description || '票据项目'}`)
-                  .fontSize(12)
-                  .fontColor('#34413d')
-                  .layoutWeight(1)
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                Text(`¥${item.amount}`)
-                  .fontSize(12)
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor('#111')
-              }
-              .width('100%')
-              .padding({ top: 5, bottom: 5 })
-            }, (item: ReceiptRecognitionItem, index: number) => `${index}_${item.description}_${item.amount}`)
-            Button('全部入账')
-              .fontSize(13)
-              .height(34)
-              .width('100%')
-              .margin({ top: 6 })
-              .backgroundColor('#a1e0cf')
-              .fontColor('#1f2f2b')
-              .onClick(() => {
-                this.saveReceiptItems();
-              })
-          }
-          .width('100%')
-          .margin({ top: 8 })
-          .padding({ left: 10, right: 10, top: 8, bottom: 8 })
-          .backgroundColor('#fff')
-          .border({ radius: 8, width: 1, color: '#edf0ec' })
-        }
+        .width('100%')
+        .margin({ top: 4, bottom: 4 })
+        .padding({ left: 14, right: 14, top: 8, bottom: 8 })
+        .backgroundColor('#fff')
+        .border({ radius: 8, width: 1, color: '#edf0ec' })
       }
-      .width('100%')
-      .padding({ left: 20, right: 20, top: 6, bottom: 12 })
 
-      Home({ currentMenu: $currentMenu, userId: $userId, syncRevision: $syncRevision})
+      Home({
+        currentMenu: $currentMenu,
+        userId: $userId,
+        syncRevision: $syncRevision,
+        ocrLoading: this.ocrLoading,
+        onRecognizeImage: (): void => {
+          this.recognizeReceiptImage();
+        }
+      })
         .layoutWeight(1)
     }
     .width('100%')
@@ -185,7 +130,8 @@ struct Index {
       Money({
         selectedTag: $selectedTag,
         userId: $userId,
-        appToken: $appToken
+        appToken: $appToken,
+        currentMenu: $currentMenu
       })
         .layoutWeight(1)
 
@@ -208,7 +154,7 @@ struct Index {
         appToken: $appToken,
         currentMenu: $currentMenu
       })
-        .height(268)
+        .height(248)
     }
 
   }
@@ -235,9 +181,7 @@ struct Index {
   }
 
   onPageShow() {
-    if (this.userId !== 'local' && this.appToken) {
-      this.syncWithServer();
-    }
+    this.restoreSavedAuth();
   }
 
   async restoreSavedAuth() {
@@ -252,57 +196,19 @@ struct Index {
       this.syncWithServer();
       return;
     }
-    this.trySilentLogin();
-  }
-
-  async trySilentLogin() {
-    const context = getContext(this) as common.UIAbilityContext;
-    const session = await HuaweiAccountService.silentLogin(context);
-    if (session) {
-      this.applySession(session);
-    }
-  }
-
-  async loginWithHuawei() {
-    const context = getContext(this) as common.UIAbilityContext;
-    try {
-      const session = await HuaweiAccountService.login(context);
-      this.applySession(session);
-      promptAction.showToast({message: '华为账号登录成功', shadow: ShadowStyle.OUTER_DEFAULT_SM , alignment: Alignment.Top, backgroundColor: '#a6f499'})
-    } catch (error) {
-      promptAction.showToast({message: '华为账号登录失败', shadow: ShadowStyle.OUTER_DEFAULT_SM , alignment: Alignment.Top, backgroundColor: '#ffcac8'})
-    }
-  }
-
-  applySession(session: HuaweiAccountSession) {
-    if (!session.authorizationCode) {
-      promptAction.showToast({message: '需要重新登录以获取服务端令牌', shadow: ShadowStyle.OUTER_DEFAULT_SM , alignment: Alignment.Top, backgroundColor: '#ffcac8'})
-      return;
-    }
-    BitstripeApiService.authHuawei(session).then((authResult) => {
-      this.userId = authResult.userId;
-      this.appToken = authResult.token;
-      this.accountLabel = `已登录 ${authResult.userId}`;
-      hilog.info(0x0000, 'ServerSync', 'applySession user=%{public}s', authResult.userId);
-      const context = getContext(this) as common.UIAbilityContext;
-      RdbUtils.getKousouLastSyncAt(context).then((lastSyncAt: string) => {
-        return RdbUtils.saveKousouAuth(context, {
-          userId: this.userId,
-          token: this.appToken,
-          expiresAt: authResult.expiresAt,
-          accountLabel: this.accountLabel,
-          lastSyncAt
-        });
-      }).catch((error: BusinessError) => {
-        console.warn(`[ServerSync] save auth failed, code=${error.code}, message=${error.message}`);
-      });
-      RdbUtils.migrateLocalRecordsToUser(this.userId).then(() => {
-        this.syncWithServer();
-      });
+    this.userId = 'local';
+    this.appToken = '';
+    this.accountLabel = '未登录';
+    router.replaceUrl({
+      url: CommonConstants.LOGIN_PAGE_URL,
+      params: CommonConstants.loginGateParams()
     }).catch((error: BusinessError) => {
-      console.error(`[ServerSync] auth failed, code=${error.code}, message=${error.message}`);
-      promptAction.showToast({message: '服务端登录失败', shadow: ShadowStyle.OUTER_DEFAULT_SM , alignment: Alignment.Top, backgroundColor: '#ffcac8'})
+      console.error(`[Index] redirect to login failed, code=${error.code}, message=${error.message}`);
     });
+  }
+
+  goLogin() {
+    router.pushUrl({ url: CommonConstants.LOGIN_PAGE_URL });
   }
 
   syncWithServer() {
@@ -366,6 +272,7 @@ struct Index {
     try {
       if (!this.appToken) {
         promptAction.showToast({message: '请先登录华为账号', shadow: ShadowStyle.OUTER_DEFAULT_SM , alignment: Alignment.Top, backgroundColor: '#ffcac8'})
+        this.goLogin();
         return;
       }
       const result = await ReceiptOcrService.recognizeFromPicker(this.appToken);
@@ -419,6 +326,7 @@ struct Index {
   saveReceiptItems() {
     if (!this.appToken || this.userId === 'local') {
       promptAction.showToast({message: '请先登录华为账号', shadow: ShadowStyle.OUTER_DEFAULT_SM , alignment: Alignment.Top, backgroundColor: '#ffcac8'})
+      this.goLogin();
       return;
     }
     if (this.receiptItems.length === 0) {
@@ -457,10 +365,10 @@ struct Index {
               Image($rawfile(`icons/${this.getMenuIcon(item)}`))
                 .width(24)
                 .height(24)
-                .fillColor(item === this.currentMenu ? '#a3c6bf' : '#d7e0e2')
+                .fillColor(item === this.currentMenu ? '#2f7468' : '#8d9996')
               Text(this.getMenuTitle(item))
                 .fontSize(12)
-                .fontColor(item === this.currentMenu ? '#a3c6bf' : '#d7e0e2')
+                .fontColor(item === this.currentMenu ? '#2f7468' : '#8d9996')
                 .padding({ top: 10 })
             }
             .width('20%')

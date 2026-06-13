@@ -13,6 +13,22 @@
  * limitations under the License.
  */
 
+export class LoginRouteParams {
+  mode: string = '';
+
+  constructor(mode: string = '') {
+    this.mode = mode;
+  }
+}
+
+export class CategoryManageRouteParams {
+  type: string = 'cost';
+
+  constructor(type: string = 'cost') {
+    this.type = type;
+  }
+}
+
 /**
  * Common constants for all features.
  */
@@ -174,10 +190,30 @@ export default class CommonConstants {
 
   static readonly TERMS_PAGE_URL: string = 'pages/Terms';
 
+  static readonly PRIVACY_DOCUMENT_URL: string = 'https://free-accounting.vercel.app/en/privacy?from=hongmeng';
+
+  static readonly TERMS_DOCUMENT_URL: string = 'https://free-accounting.vercel.app/en/terms?from=hongmeng';
+
+  static readonly LOGIN_PAGE_URL: string = 'pages/Login';
+
+  static readonly INDEX_PAGE_URL: string = 'pages/Index';
+
+  static readonly LOGIN_GATE_MODE: string = 'gate';
+
+  static loginGateParams(): LoginRouteParams {
+    return new LoginRouteParams(CommonConstants.LOGIN_GATE_MODE);
+  }
+
+  static readonly CATEGORY_MANAGE_PAGE_URL: string = 'pages/CategoryManage';
+
+  static categoryManageParams(type: string): CategoryManageRouteParams {
+    return new CategoryManageRouteParams(type);
+  }
+
   /**
    * App home page url.
    */
-  static readonly APP_HOME_PAGE_URL: string = 'pages/AppHomePage';
+  static readonly APP_HOME_PAGE_URL: string = 'pages/Index';
 
   /**
    * Common layout weight.

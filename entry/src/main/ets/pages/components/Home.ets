@@ -31,18 +31,19 @@ interface MatchTag {icon: string, name: string}
 @Component
 export struct Home {
   @State showHistory: boolean = false;
-  @State expandedHistory: boolean = false;
   @State visibleRecordCount: number = 12;
+  @State isLoadingMore: boolean = false;
 
   @State todayIncome: number = 0;
   @State todayCost: number = 0;
 
   @State recordList: FormatRecordList[] = [];
 
-
   @Watch('handleMenuChange') @Link currentMenu: string;
   @Link userId: string;
   @Watch('handleSyncChange') @Link syncRevision: number;
+  @Prop ocrLoading: boolean = false;
+  onRecognizeImage: () => void = () => {};
 
   aboutToAppear() {
     if(RdbUtils.getStore()) {
@@ -132,7 +133,6 @@ export struct Home {
       this.todayCost = todayTotalCost;
 
       let formatObj: FormatRecordObject = {}
-      // 获取tag内容加入到record中
       homeRecordList.forEach((item) => {
         const tagId = item.tagId;
         const category = item.category;
@@ -163,7 +163,6 @@ export struct Home {
           formatObj[date] = [newItem]
         }
       })
-      // 组合date和新的recordItem列表
       let formatList: FormatRecordList[] = []
       Object.keys(formatObj).forEach((key)=> {
         formatList.push({date: key, list: formatObj[key]})
@@ -174,23 +173,11 @@ export struct Home {
     })
   }
 
-
   calcRotate = () => {
     if(this.showHistory) {
       return 180;
     } else {
       return 0;
-    }
-  }
-
-  calcHeight = () => {
-    if(this.showHistory && !this.expandedHistory) {
-      // 如果高度足够放下原来的，则不会抖动，否则，会拉长整个页面，然后页面变长，位置会重新计算，会抖动
-      return '60%';
-    } else if (this.expandedHistory) {
-      return '28%';
-    } else {
-      return '100%';
     }
   }
 
@@ -202,8 +189,12 @@ export struct Home {
     return this.recordList.reduce((total: number, item: FormatRecordList) => total + item.list.length, 0);
   }
 
+  hasMoreRecords(): boolean {
+    return this.visibleRecordCount < this.totalRecordCount();
+  }
+
   visibleRecordList(): FormatRecordList[] {
-    let remain = this.expandedHistory ? this.visibleRecordCount : 8;
+    let remain = this.visibleRecordCount;
     const result: FormatRecordList[] = [];
     this.sortedRecordList().forEach((day: FormatRecordList) => {
       if (remain <= 0) {
@@ -219,8 +210,28 @@ export struct Home {
   }
 
   loadMoreRecords() {
+    if (this.isLoadingMore || !this.hasMoreRecords()) {
+      return;
+    }
+    this.isLoadingMore = true;
     this.visibleRecordCount += 12;
+    this.isLoadingMore = false;
   }
+
+  handleReachEnd() {
+    if (!this.showHistory) {
+      return;
+    }
+    this.loadMoreRecords();
+  }
+
+  toggleHistory() {
+    this.showHistory = !this.showHistory;
+    if (!this.showHistory) {
+      this.visibleRecordCount = 12;
+    }
+  }
+
   build() {
     Scroll(){
       Column() {
@@ -239,27 +250,39 @@ export struct Home {
               .fontColor('#acacac')
               .fontSize(14)
           }
-          .margin({top: 100, bottom: 40})
+          .margin({top: 20, bottom: 18})
 
           Text('记一笔')
-            .margin({top: 20, bottom: 20})
-            .padding({top: 8, bottom: 8, left: 32, right: 32})
+            .margin({ top: 12, bottom: 8 })
+            .padding({ top: 8, bottom: 8, left: 32, right: 32 })
             .backgroundColor('#a1e0cf')
-            .border({width: 2, color: '#9acdbc', style: BorderStyle.Solid, radius: 8})
+            .border({ width: 2, color: '#9acdbc', style: BorderStyle.Solid, radius: 8 })
             .fontColor('#333')
             .fontSize(14)
-            .onClick(()=> {
-              this.currentMenu = 'money'
+            .onClick(() => {
+              this.currentMenu = 'money';
+            })
+
+          Text(this.ocrLoading ? '识别中...' : '识别图片')
+            .fontSize(14)
+            .fontColor('#2f7468')
+            .decoration({ type: TextDecorationType.Underline, color: '#2f7468' })
+            .margin({ bottom: 12 })
+            .opacity(this.ocrLoading ? 0.6 : 1)
+            .onClick(() => {
+              if (!this.ocrLoading) {
+                this.onRecognizeImage();
+              }
             })
 
           Row() {
-            Text("展示最近账单")
-              .fontColor('#adadad')
+            Text(this.showHistory ? '收起账单' : '展示最近账单')
+              .fontColor('#66736f')
               .fontSize(16)
             Image($rawfile('icons/up.svg'))
               .width(28)
               .height(28)
-              .fillColor('#adadad')
+              .fillColor('#66736f')
               .rotate({angle: this.calcRotate()})
               .animation({
                 duration: 200,
@@ -268,73 +291,55 @@ export struct Home {
                 playMode: PlayMode.Normal
               })
           }
+          .margin({ bottom: this.showHistory ? 4 : 16 })
           .onClick(() => {
-            this.showHistory = !this.showHistory;
-            if (!this.showHistory) {
-              this.expandedHistory = false;
-              this.visibleRecordCount = 12;
-            }
-            // this.queryData();
+            this.toggleHistory();
           })
         }
         .justifyContent(FlexAlign.Start)
         .width('100%')
-        .height(this.calcHeight())
 
         if(this.showHistory) {
-          Row() {
-            Text(this.expandedHistory ? '最近账单' : '最近账单预览')
-              .fontSize(16)
-              .fontWeight(FontWeight.Bold)
-              .fontColor('#111')
-            Text(this.expandedHistory ? '收起' : '展开全部')
-              .fontSize(14)
-              .fontColor('#2f7468')
-              .onClick(() => {
-                this.expandedHistory = !this.expandedHistory;
-                this.visibleRecordCount = this.expandedHistory ? 24 : 12;
+          Column() {
+            ForEach(this.visibleRecordList(), (item: FormatRecordList) => {
+              Recent({
+                item: item
               })
-          }
-          .justifyContent(FlexAlign.SpaceBetween)
-          .width('100%')
-          .padding({ left: 20, right: 20, bottom: 8 })
-          Scroll() {
-            Column(){
-              ForEach(this.visibleRecordList(), (item: FormatRecordList, _) => {
-                Recent({
-                  item: item
-                })
-              }, (item: FormatRecordList) => item.date)
-              if (this.expandedHistory && this.visibleRecordCount < this.totalRecordCount()) {
-                Text('加载更多')
-                  .fontSize(14)
-                  .textAlign(TextAlign.Center)
-                  .fontColor('#1f2f2b')
-                  .width('100%')
-                  .padding({ top: 10, bottom: 10 })
-                  .backgroundColor('#edf0ec')
-                  .border({ radius: 8 })
-                  .margin({ top: 10 })
-                  .onClick(() => {
-                    this.loadMoreRecords();
-                  })
-              }
-              if (this.expandedHistory && this.totalRecordCount() > 0 && this.visibleRecordCount >= this.totalRecordCount()) {
-                Text('没有更多了')
-                  .fontSize(12)
-                  .fontColor('#8d9996')
-                  .width('100%')
-                  .textAlign(TextAlign.Center)
-                  .padding({ top: 10, bottom: 4 })
-              }
+            }, (item: FormatRecordList) => item.date)
+            if (this.hasMoreRecords()) {
+              Text('上滑加载更多')
+                .fontSize(12)
+                .fontColor('#8d9996')
+                .width('100%')
+                .textAlign(TextAlign.Center)
+                .padding({ top: 8, bottom: 12 })
+            } else if (this.totalRecordCount() > 0) {
+              Text('没有更多了')
+                .fontSize(12)
+                .fontColor('#8d9996')
+                .width('100%')
+                .textAlign(TextAlign.Center)
+                .padding({ top: 8, bottom: 12 })
+            } else {
+              Text('暂无账单记录')
+                .fontSize(13)
+                .fontColor('#8d9996')
+                .width('100%')
+                .textAlign(TextAlign.Center)
+                .padding({ top: 8, bottom: 12 })
             }
-            .justifyContent(FlexAlign.Start)
-            .padding({left: 20, right: 20, bottom: 10})
           }
-          .height(this.expandedHistory ? 520 : 250)
+          .width('100%')
         }
       }
+      .width('100%')
     }
+    .scrollBar(BarState.Off)
+    .scrollBarColor(Color.Transparent)
+    .scrollBarWidth(0)
+    .onReachEnd(() => {
+      this.handleReachEnd();
+    })
     .width('100%')
     .height('100%')
   }

@@ -4,6 +4,8 @@
     "pages/Second",
     "pages/Privacy",
     "pages/Terms",
+    "pages/Login",
+    "pages/CategoryManage",
     "pages/Launch"
   ]
 }

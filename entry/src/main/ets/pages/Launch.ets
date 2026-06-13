@@ -1,88 +1,35 @@
-import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
 import Logger from '../common/utils/Logger';
 import CommonConstants from '../common/constants/CommonConstants';
-import CustomDialogComponent from '../view/CustomDialogComponent';
-import { GlobalContext } from '../common/utils/GlobalContext';
+import RdbUtils from '../common/rdbUtils/RdbUtils';
 
 @Entry
 @Component
 struct LauncherPage {
   private context?: common.UIAbilityContext;
-  dialogController: CustomDialogController = new CustomDialogController({
-    builder: CustomDialogComponent({
-      cancel: () => {
-        this.onCancel();
-      },
-      confirm: () => {
-        this.onConfirm();
-      }
-    }),
-    alignment: DialogAlignment.Bottom,
-    offset: { dx: 0, dy: CommonConstants.DIALOG_CONTROLLER_DY_OFFSET },
-    customStyle: true,
-    autoCancel: false
-  });
-
-  onCancel() {
-    this.context?.terminateSelf();
-  }
-
-  onConfirm() {
-    this.saveIsPrivacy(() => {
-      this.goToHome();
-    });
-  }
 
   onPageShow() {
     this.context = getContext(this) as common.UIAbilityContext;
-    this.getDataPreferences(this).then((preferences: preferences.Preferences) => {
-      preferences.get(CommonConstants.PREFERENCES_KEY_PRIVACY, true).then((value: preferences.ValueType) => {
-        Logger.info(CommonConstants.LAUNCHER_PAGE_TAG, 'onPageShow value: ' + value);
-        if (value) {
-          const isJumpPrivacy: boolean = (GlobalContext.getContext().getObject('isJumpPrivacy') as boolean) ?? false;
-          if (!isJumpPrivacy) {
-            this.dialogController.open();
-          }
-        } else {
-          this.goToHome();
-        }
-      });
-    });
+    this.goToHome();
   }
 
-  saveIsPrivacy(onSaved?: () => void) {
-    const preferences: Promise<preferences.Preferences> = this.getDataPreferences(this);
-    preferences.then((result: preferences.Preferences) => {
-      const privacyPut = result.put(CommonConstants.PREFERENCES_KEY_PRIVACY, false);
-      privacyPut.then(() => {
-        result.flush().then(() => {
-          Logger.info(CommonConstants.LAUNCHER_PAGE_TAG, 'Put the value of startup Successfully.');
-          if (onSaved) {
-            onSaved();
-          }
-        }).catch((err: Error) => {
-          Logger.error(CommonConstants.LAUNCHER_PAGE_TAG, 'Flush the value of startup Failed, err: ' + err);
-        });
-      }).catch((err: Error) => {
-        Logger.error(CommonConstants.LAUNCHER_PAGE_TAG, 'Put the value of startup Failed, err: ' + err);
+  async goToHome() {
+    const context = getContext(this) as common.UIAbilityContext;
+    const savedAuth = await RdbUtils.loadKousouAuth(context);
+    const targetUrl = savedAuth ? CommonConstants.INDEX_PAGE_URL : CommonConstants.LOGIN_PAGE_URL;
+    if (savedAuth) {
+      router.replaceUrl({ url: targetUrl }).catch((error: Error) => {
+        Logger.error(CommonConstants.LAUNCHER_PAGE_TAG, 'LauncherPage replaceUrl error ' + JSON.stringify(error));
       });
-    }).catch((err: Error) => {
-      Logger.error(CommonConstants.LAUNCHER_PAGE_TAG, 'Get the preferences Failed, err: ' + err);
-    });
-  }
-
-  goToHome() {
+      return;
+    }
     router.replaceUrl({
-      url: 'pages/Index'
+      url: targetUrl,
+      params: CommonConstants.loginGateParams()
     }).catch((error: Error) => {
       Logger.error(CommonConstants.LAUNCHER_PAGE_TAG, 'LauncherPage replaceUrl error ' + JSON.stringify(error));
     });
-  }
-
-  getDataPreferences(common: Object) {
-    return preferences.getPreferences(getContext(common), CommonConstants.PREFERENCES_FILE_NAME);
   }
 
   build() {

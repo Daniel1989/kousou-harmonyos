@@ -50,7 +50,7 @@ export default struct CustomDialogComponent {
           .fontSize($r('app.float.dialog_common_text_size'))
           .onClick(() => {
             this.controller.close();
-            // GlobalContext.getContext().setObject('isJumpPrivacy', true);
+            GlobalContext.getContext().setObject('isJumpPrivacy', true);
             router.pushUrl({
               url: CommonConstants.PRIVACY_PAGE_URL
             }).catch((error: Error) => {
@@ -64,7 +64,7 @@ export default struct CustomDialogComponent {
           .fontSize($r('app.float.dialog_common_text_size'))
           .onClick(() => {
             this.controller.close();
-            // GlobalContext.getContext().setObject('isJumpPrivacy', true);
+            GlobalContext.getContext().setObject('isJumpPrivacy', true);
             router.pushUrl({
               url: CommonConstants.TERMS_PAGE_URL
             }).catch((error: Error) => {

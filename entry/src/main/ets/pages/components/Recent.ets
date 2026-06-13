@@ -96,6 +96,6 @@ export struct Recent {
 
 
       }
-      .margin(16)
+      .margin({ top: 4, bottom: 8, left: 14, right: 14 })
     }
 }

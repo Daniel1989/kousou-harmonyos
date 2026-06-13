@@ -1,7 +1,7 @@
-import { promptAction } from '@kit.ArkUI';
+import { promptAction, router } from '@kit.ArkUI';
 import { BusinessError } from '@kit.BasicServicesKit';
+import CommonConstants from '../../common/constants/CommonConstants';
 import { BitstripeApiService, ServerGoal, ServerGoalAnalysis, ServerGoalPayload } from "../../common/server/BitstripeApiService";
-
 @Component
 export struct Wishlist {
   @Link userId: string;
@@ -159,6 +159,10 @@ export struct Wishlist {
     return Math.max(0, Math.min(100, Math.floor(current / target * 100)));
   }
 
+  goLogin() {
+    router.pushUrl({ url: CommonConstants.LOGIN_PAGE_URL });
+  }
+
   build() {
     Scroll() {
       Column() {
@@ -166,12 +170,25 @@ export struct Wishlist {
           .fontSize(28)
           .fontWeight(FontWeight.Bold)
           .fontColor('#111')
-          .margin({ top: 24, bottom: 18 })
+          .margin({ top: 14, bottom: 14 })
 
         if (!this.appToken || this.userId === 'local') {
-          Text('登录华为账号后可创建心愿目标和储蓄计划')
-            .fontSize(15)
-            .fontColor('#66736f')
+          Column() {
+            Text('登录后可创建心愿目标和储蓄计划')
+              .fontSize(15)
+              .fontColor('#66736f')
+              .width('100%')
+            Button('去登录')
+              .height(38)
+              .width('100%')
+              .margin({ top: 12 })
+              .backgroundColor('#a1e0cf')
+              .fontColor('#1f2f2b')
+              .onClick(() => {
+                this.goLogin();
+              })
+          }
+            .alignItems(HorizontalAlign.Start)
             .width('100%')
             .padding({ top: 14, bottom: 14, left: 16, right: 16 })
             .backgroundColor('#f2f5f0')
@@ -196,49 +213,65 @@ export struct Wishlist {
             .justifyContent(FlexAlign.SpaceBetween)
             .width('100%')
 
-            TextInput({ placeholder: '目标名称', text: this.title })
+            Text('目标名称')
+              .fontSize(12)
+              .fontColor('#66736f')
+              .width('100%')
+              .margin({ top: 12, bottom: 4 })
+            TextInput({ placeholder: '例如：买电脑', text: this.title })
               .height(42)
               .fontSize(14)
               .backgroundColor('#fff')
               .border({ radius: 8 })
-              .margin({ top: 12 })
               .onChange((value: string) => {
                 this.title = value;
               })
-            TextInput({ placeholder: '目标金额', text: this.targetAmount })
+            Text('目标金额')
+              .fontSize(12)
+              .fontColor('#66736f')
+              .width('100%')
+              .margin({ top: 10, bottom: 4 })
+            TextInput({ placeholder: '例如：6000', text: this.targetAmount })
               .height(42)
               .fontSize(14)
               .type(InputType.Number)
               .backgroundColor('#fff')
               .border({ radius: 8 })
-              .margin({ top: 10 })
               .onChange((value: string) => {
                 this.targetAmount = value;
               })
-            TextInput({ placeholder: '月收入，用于估算计划', text: this.monthlyIncome })
+            Text('月收入')
+              .fontSize(12)
+              .fontColor('#66736f')
+              .width('100%')
+              .margin({ top: 10, bottom: 4 })
+            TextInput({ placeholder: '用于估算计划', text: this.monthlyIncome })
               .height(42)
               .fontSize(14)
               .type(InputType.Number)
               .backgroundColor('#fff')
               .border({ radius: 8 })
-              .margin({ top: 10 })
               .onChange((value: string) => {
                 this.monthlyIncome = value;
               })
-            TextInput({ placeholder: '备注', text: this.description })
+            Text('备注')
+              .fontSize(12)
+              .fontColor('#66736f')
+              .width('100%')
+              .margin({ top: 10, bottom: 4 })
+            TextInput({ placeholder: '可选', text: this.description })
               .height(42)
               .fontSize(14)
               .backgroundColor('#fff')
               .border({ radius: 8 })
-              .margin({ top: 10 })
               .onChange((value: string) => {
                 this.description = value;
               })
             Button(this.loading ? '保存中...' : (this.editingGoalId ? '更新计划' : '生成计划'))
               .height(42)
               .width('100%')
-              .backgroundColor('#f1c21a')
-              .fontColor('#222')
+              .backgroundColor('#a1e0cf')
+              .fontColor('#1f2f2b')
               .fontSize(15)
               .margin({ top: 12 })
               .onClick(() => {
@@ -351,6 +384,9 @@ export struct Wishlist {
       .width('100%')
       .padding({ left: 20, right: 20, bottom: 24 })
     }
+    .scrollBar(BarState.Off)
+    .scrollBarColor(Color.Transparent)
+    .scrollBarWidth(0)
     .width('100%')
     .height('100%')
   }
